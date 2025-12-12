@@ -3,7 +3,7 @@ use chrono::NaiveDate;
 use mysql_async::prelude::FromRow;
 use repo_helper::{Filter, SqlFilter, database_table, mysql::{MySqlHelper, QueryObject}};
 
-use crate::types::{Error, Market};
+use crate::types::Error;
 use crate::entities::{Stock, StocksDao};
 use crate::repository::repo_impl_mysql::{convert::IntoRepoResult, repo::RepoImpl, repo_tx::RepoTxImpl};
 

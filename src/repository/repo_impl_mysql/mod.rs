@@ -2,6 +2,8 @@ mod repo;
 mod repo_tx;
 mod repo_stocks;
 mod convert;
+mod repo_fi_annuals;
+mod repo_fi_quarters;
 
 pub use repo::RepoImpl;
 

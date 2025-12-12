@@ -4,7 +4,7 @@ use repo_helper::mysql::QueryObject;
 
 use crate::types::Error;
 use crate::repository::repo_impl_mysql::repo_tx::RepoTxImpl;
-use crate::entities::{EntityDao, RepoTx, Repository, StocksDao};
+use crate::entities::{EntityDao, FiAnnualsDao, FiQuartersDao, RepoTx, Repository, StocksDao};
 
 #[derive(Clone)]
 pub struct RepoImpl {
@@ -38,6 +38,12 @@ impl RepoImpl {
 
 impl EntityDao for RepoImpl {
 	fn stocks(&self) -> &(dyn StocksDao + Sync) {
+		self
+	}
+	fn fi_annuals(&self) -> &(dyn FiAnnualsDao + Sync) {
+		self
+	}
+	fn fi_quarters(&self) -> &(dyn FiQuartersDao + Sync) {
 		self
 	}
 }

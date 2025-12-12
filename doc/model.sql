@@ -21,10 +21,30 @@ CREATE TABLE item_info (
 	etf_tax_type VARCHAR(30) -- 과세유형
 );
 
-CREATE TABLE fi_annual (
-	code VARCHAR(9) NOT NULL PRIMARY KEY, -- 종목코드
+DROP TABLE IF EXISTS fi_annuals;
+CREATE TABLE fi_annuals (
+	stock_code VARCHAR(9) NOT NULL, -- 종목코드
+	year SMALLINT UNSIGNED NOT NULL, -- 기준년도
+	month TINYINT UNSIGNED NOT NULL, -- 기준월
+	sales FLOAT, -- 매출액
+	profit FLOAT, -- 영업이익
+	net_income FLOAT, -- 당기순이익
+	dividend FLOAT, -- 주당배당금
+	dividend_yield FLOAT, -- 배당수익률
+	PRIMARY KEY (stock_code, year),
+	CHECK (month BETWEEN 1 AND 12)
 );
 
-CREATE TABLE fi_quarter (
-
+DROP TABLE IF EXISTS fi_quarters;
+CREATE TABLE fi_quarters (
+	stock_code VARCHAR(9) NOT NULL, -- 종목코드
+	year SMALLINT UNSIGNED NOT NULL, -- 기준년도
+	month TINYINT UNSIGNED NOT NULL, -- 기준월
+	sales FLOAT, -- 매출액
+	profit FLOAT, -- 영업이익
+	net_income FLOAT, -- 당기순이익
+	dividend FLOAT, -- 주당배당금
+	dividend_yield FLOAT, -- 배당수익률
+	PRIMARY KEY (stock_code, year, month),
+	CHECK (month BETWEEN 1 AND 12)
 );

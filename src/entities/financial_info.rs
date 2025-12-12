@@ -1,68 +1,88 @@
 use async_trait::async_trait;
 
-use crate::types::Error;
+use crate::types::{Error, YearMonth};
 
-pub struct FiAnnual {
+#[derive(Debug, Default, PartialEq)]
+pub struct FinancialInfo {
 	/// 단축코드
 	pub stock_code: String,
-	/// 년도
-	pub year: u16,
+	/// 년월
+	pub year_month: YearMonth,
 	/// 매출액
-	pub sales: f64,
+	pub sales: Option<f32>,
 	/// 영업이익
-	pub profit: f64,
+	pub profit: Option<f32>,
 	/// 당기순이익
-	pub net_income: f64,
+	pub net_income: Option<f32>,
 	/// 주당배당금
-	pub dividend: f64,
+	pub dividend: Option<f32>,
 	/// 배당수익률
-	pub dividend_yield: f64,
+	pub dividend_yield: Option<f32>,
 }
 
-pub struct FiQuarter {
-	/// 단축코드
-	pub stock_code: String,
-	/// 년도
-	pub year: u16,
-	/// 분기
-	pub quarter: u8,
+pub struct FiAnnualData {
+	/// 기준년월
+	pub month: u8,
 	/// 매출액
-	pub sales: f64,
+	pub sales: Option<f32>,
 	/// 영업이익
-	pub profit: f64,
+	pub profit: Option<f32>,
 	/// 당기순이익
-	pub net_income: f64,
+	pub net_income: Option<f32>,
 	/// 주당배당금
-	pub dividend: f64,
+	pub dividend: Option<f32>,
 	/// 배당수익률
-	pub dividend_yield: f64,
+	pub dividend_yield: Option<f32>,
+}
+impl From<&FinancialInfo> for FiAnnualData {
+	fn from(info: &FinancialInfo) -> Self {
+		Self {
+			month: info.year_month.month,
+			sales: info.sales,
+			profit: info.profit,
+			net_income: info.net_income,
+			dividend: info.dividend,
+			dividend_yield: info.dividend_yield,
+		}
+	}
 }
 
-pub struct FiData {
+pub struct FiQuarterData {
 	/// 매출액
-	pub sales: f64,
+	pub sales: Option<f32>,
 	/// 영업이익
-	pub profit: f64,
+	pub profit: Option<f32>,
 	/// 당기순이익
-	pub net_income: f64,
+	pub net_income: Option<f32>,
 	/// 주당배당금
-	pub dividend: f64,
+	pub dividend: Option<f32>,
 	/// 배당수익률
-	pub dividend_yield: f64,
+	pub dividend_yield: Option<f32>,
+}
+impl From<&FinancialInfo> for FiQuarterData {
+	fn from(info: &FinancialInfo) -> Self {
+		Self {
+			sales: info.sales,
+			profit: info.profit,
+			net_income: info.net_income,
+			dividend: info.dividend,
+			dividend_yield: info.dividend_yield,
+		}
+	}
 }
 
 #[async_trait]
 pub trait FiAnnualsDao {
-	async fn find(&self, stock_code: &str, year: u16) -> Result<Option<FiAnnual>, Error>;
-	async fn list(&self) -> Result<Vec<FiAnnual>, Error>;
-	async fn insert(&self, annual: FiAnnual) -> Result<(), Error>;
-	async fn update(&self, annual: &mut FiAnnual, data: FiData) -> Result<(), Error>;
+	async fn find(&self, stock_code: &str, year: u16) -> Result<Option<FinancialInfo>, Error>;
+	async fn list(&self, stock_code: &str) -> Result<Vec<FinancialInfo>, Error>;
+	async fn insert(&self, annual: &FinancialInfo) -> Result<(), Error>;
+	async fn update(&self, annual: &mut FinancialInfo, data: FiAnnualData) -> Result<(), Error>;
 }
 
 #[async_trait]
 pub trait FiQuartersDao {
-	async fn find(&self, stock_code: &str, year: u16, quarter: u8) -> Result<Option<FiQuarter>, Error>;
-	async fn list(&self) -> Result<Vec<FiQuarter>, Error>;
-	async fn insert(&self, quarter: FiQuarter) -> Result<(), Error>;
-	async fn update(&self, quarter: &mut FiQuarter, data: FiData) -> Result<(), Error>;
+	async fn find(&self, stock_code: &str, year: u16, month: u8) -> Result<Option<FinancialInfo>, Error>;
+	async fn list(&self, stock_code: &str) -> Result<Vec<FinancialInfo>, Error>;
+	async fn insert(&self, quarter: &FinancialInfo) -> Result<(), Error>;
+	async fn update(&self, quarter: &mut FinancialInfo, data: FiQuarterData) -> Result<(), Error>;
 }

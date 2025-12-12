@@ -1,9 +1,11 @@
 use async_trait::async_trait;
 
-use crate::{entities::StocksDao, types::Error};
+use crate::{entities::{FiAnnualsDao, FiQuartersDao, StocksDao}, types::Error};
 
 pub trait EntityDao: Send + Sync {
 	fn stocks(&self) -> &(dyn StocksDao + Sync);
+	fn fi_annuals(&self) -> &(dyn FiAnnualsDao + Sync);
+	fn fi_quarters(&self) -> &(dyn FiQuartersDao + Sync);
 }
 
 #[async_trait]
