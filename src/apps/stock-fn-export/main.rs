@@ -94,18 +94,25 @@ struct Record {
 	/// 영업이익 - 연간실적 기준년월 1
 	#[serde(rename = "영업이익(억)")]
 	y1_profit: Option<i32>,
+	/// 시가배당률 - 연간실적 기준년월 1
+	#[serde(rename = "시가배당률(%)")]
+	y1_dividend_yield: Option<f32>,
 	#[serde(rename = "연간실적(Y-2)")]
 	y2_date: Option<YearMonth>,
 	#[serde(rename = "매출액(억)")]
 	y2_sales: Option<i32>,
 	#[serde(rename = "영업이익(억)")]
 	y2_profit: Option<i32>,
+	#[serde(rename = "시가배당률(%)")]
+	y2_dividend_yield: Option<f32>,
 	#[serde(rename = "연간실적(Y-1)")]
 	y3_date: Option<YearMonth>,
 	#[serde(rename = "매출액(억)")]
 	y3_sales: Option<i32>,
 	#[serde(rename = "영업이익(억)")]
 	y3_profit: Option<i32>,
+	#[serde(rename = "시가배당률(%)")]
+	y3_dividend_yield: Option<f32>,
 	/// 분기실적 기준년월 1
 	#[serde(rename = "분기실적(Q-3)")]
 	q1_date: Option<YearMonth>,
@@ -115,22 +122,28 @@ struct Record {
 	/// 영업이익 - 분기실적 기준년월 1
 	#[serde(rename = "영업이익(억)")]
 	q1_profit: Option<i32>,
+	#[serde(rename = "시가배당률(%)")]
+	q1_dividend_yield: Option<f32>,
 	#[serde(rename = "분기실적(Q-2)")]
 	q2_date: Option<YearMonth>,
 	#[serde(rename = "매출액(억)")]
 	q2_sales: Option<i32>,
 	#[serde(rename = "영업이익(억)")]
 	q2_profit: Option<i32>,
+	#[serde(rename = "시가배당률(%)")]
+	q2_dividend_yield: Option<f32>,
 	#[serde(rename = "분기실적(Q-1)")]
 	q3_date: Option<YearMonth>,
 	#[serde(rename = "매출액(억)")]
 	q3_sales: Option<i32>,
 	#[serde(rename = "영업이익(억)")]
 	q3_profit: Option<i32>,
+	#[serde(rename = "시가배당률(%)")]
+	q3_dividend_yield: Option<f32>,
 }
 
 async fn create_csv(data_list: &LinkedList<Data>) -> Result<(), Error> {
-	let file = File::create("종목데이터.csv")?;
+	let file = File::create("종목별실적데이터.csv")?;
 	// let mut writer = Writer::from_writer(file);
 	let mut writer = WriterBuilder::new()
 		.quote_style(QuoteStyle::NonNumeric) // Set the quoting style
@@ -151,44 +164,56 @@ async fn create_csv(data_list: &LinkedList<Data>) -> Result<(), Error> {
 
 		let i = data.annuals.len() as i32 - 1;
 		if i >= 0 {
-			rec.y3_date = Some(data.annuals[i as usize].year_month);
-			rec.y3_sales = data.annuals[i as usize].sales.map(|v| v as i32);
-			rec.y3_profit = data.annuals[i as usize].profit.map(|v| v as i32);
+			let annual = &data.annuals[i as usize];
+			rec.y3_date = Some(annual.year_month);
+			rec.y3_sales = annual.sales.map(|v| v as i32);
+			rec.y3_profit = annual.profit.map(|v| v as i32);
+			rec.y3_dividend_yield = annual.dividend_yield;
 		}
 
 		let i = data.annuals.len() as i32 - 2;
 		if i >= 0 {
-			rec.y2_date = Some(data.annuals[i as usize].year_month);
-			rec.y2_sales = data.annuals[i as usize].sales.map(|v| v as i32);
-			rec.y2_profit = data.annuals[i as usize].profit.map(|v| v as i32);
+			let annual = &data.annuals[i as usize];
+			rec.y2_date = Some(annual.year_month);
+			rec.y2_sales = annual.sales.map(|v| v as i32);
+			rec.y2_profit = annual.profit.map(|v| v as i32);
+			rec.y2_dividend_yield = annual.dividend_yield;
 		}
 
 		let i = data.annuals.len() as i32 - 3;
 		if i >= 0 {
-			rec.y1_date = Some(data.annuals[i as usize].year_month);
-			rec.y1_sales = data.annuals[i as usize].sales.map(|v| v as i32);
-			rec.y1_profit = data.annuals[i as usize].profit.map(|v| v as i32);
+			let annual = &data.annuals[i as usize];
+			rec.y1_date = Some(annual.year_month);
+			rec.y1_sales = annual.sales.map(|v| v as i32);
+			rec.y1_profit = annual.profit.map(|v| v as i32);
+			rec.y1_dividend_yield = annual.dividend_yield;
 		}
 
 		let i = data.quarters.len() as i32 - 1;
 		if i >= 0 {
-			rec.q3_date = Some(data.quarters[i as usize].year_month);
-			rec.q3_sales = data.quarters[i as usize].sales.map(|v| v as i32);
-			rec.q3_profit = data.quarters[i as usize].profit.map(|v| v as i32);
+			let quarter = &data.quarters[i as usize];
+			rec.q3_date = Some(quarter.year_month);
+			rec.q3_sales = quarter.sales.map(|v| v as i32);
+			rec.q3_profit = quarter.profit.map(|v| v as i32);
+			rec.q3_dividend_yield = quarter.dividend_yield;
 		}
 
 		let i = data.quarters.len() as i32 - 2;
 		if i >= 0 {
-			rec.q2_date = Some(data.quarters[i as usize].year_month);
-			rec.q2_sales = data.quarters[i as usize].sales.map(|v| v as i32);
-			rec.q2_profit = data.quarters[i as usize].profit.map(|v| v as i32);
+			let quarter = &data.quarters[i as usize];
+			rec.q2_date = Some(quarter.year_month);
+			rec.q2_sales = quarter.sales.map(|v| v as i32);
+			rec.q2_profit = quarter.profit.map(|v| v as i32);
+			rec.q2_dividend_yield = quarter.dividend_yield;
 		}
 
 		let i = data.quarters.len() as i32 - 3;
 		if i >= 0 {
-			rec.q1_date = Some(data.quarters[i as usize].year_month);
-			rec.q1_sales = data.quarters[i as usize].sales.map(|v| v as i32);
-			rec.q1_profit = data.quarters[i as usize].profit.map(|v| v as i32);
+			let quarter = &data.quarters[i as usize];
+			rec.q1_date = Some(quarter.year_month);
+			rec.q1_sales = quarter.sales.map(|v| v as i32);
+			rec.q1_profit = quarter.profit.map(|v| v as i32);
+			rec.q1_dividend_yield = quarter.dividend_yield;
 		}
 
 		writer.serialize(rec)?;
