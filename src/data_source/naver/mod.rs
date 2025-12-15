@@ -4,7 +4,7 @@ use ratelimit::Ratelimiter;
 use reqwest::IntoUrl;
 use scraper::{Element, ElementRef, Html, Selector};
 
-use crate::{fi_registry::Financials, types::{Error, YearMonth}};
+use crate::{entities::FinancialInfo, fi_registry::Financials, types::{Error, YearMonth}};
 
 lazy_static::lazy_static! {
 	static ref NAVER_RATELIMITER: Ratelimiter = Ratelimiter::builder(1, std::time::Duration::from_millis(500))
@@ -38,7 +38,9 @@ pub async fn query_stock_financials(stock_code: &str) -> Result<Financials, Erro
 	let url = reqwest::Url::parse_with_params("https://finance.naver.com/item/main.naver", params)
 		.map_err(|e| e.to_string())?;
 	let text = request(url).await?;
-	parse_html_resp(&text, stock_code)
+	let mut financials = parse_html_resp(&text, stock_code)?;
+	financials.remove_duplicate();
+	Ok(financials)
 }
 
 lazy_static::lazy_static! {
@@ -237,4 +239,18 @@ fn get_text(th: ElementRef<'_>) -> String {
 	}
 
 	string.trim().to_string()
+}
+
+impl Financials {
+	pub fn remove_duplicate(&mut self) {
+		let dup = self.annuals.list.clone();
+		for annual in dup.into_iter() {
+			if let Some((i, fi)) = self.annuals.list.iter().enumerate().find(|(_, fi)| fi.year_month.year == annual.year_month.year) {
+				// drops the older one
+				if fi.year_month < annual.year_month {
+					self.annuals.list.remove(i);
+				}
+			}
+		}
+	}
 }

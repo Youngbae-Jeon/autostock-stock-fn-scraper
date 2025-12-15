@@ -2,7 +2,7 @@ use async_trait::async_trait;
 
 use crate::types::{Error, YearMonth};
 
-#[derive(Debug, Default, PartialEq)]
+#[derive(Debug, Default, PartialEq, Clone)]
 pub struct FinancialInfo {
 	/// 단축코드
 	pub stock_code: String,

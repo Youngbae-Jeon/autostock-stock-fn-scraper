@@ -83,3 +83,13 @@ impl Display for YearMonth {
 		write!(f, "{}.{:02}", self.year, self.month)
 	}
 }
+impl PartialOrd for YearMonth {
+	fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+		Some(self.cmp(other))
+	}
+}
+impl Ord for YearMonth {
+	fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+		self.year.cmp(&other.year).then_with(|| self.month.cmp(&other.month))
+	}
+}

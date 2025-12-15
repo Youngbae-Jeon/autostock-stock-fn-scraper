@@ -1,3 +1,5 @@
+use std::process::exit;
+
 use chrono::Local;
 
 use crate::{data_source::{query_stock_financials}, entities::EntityDao, repository::{DatabaseConfig, Repo}, types::Error};
@@ -21,23 +23,32 @@ async fn main() {
 	let today = Local::now().date_naive();
 	let stocks = repo.stocks().list().await.unwrap();
 
-	for stock in stocks.iter().filter(|s| s.code == "029780") {
-		log::info!("Stock: {} {} {}", stock.code, stock.info_date, stock.name);
-		if today - stock.info_date > chrono::Duration::days(10) {
-			log::info!("Outdated (skip)");
-		}
+	let stocks_len = stocks.len();
+	let mut fetched_stocks = 0;
+	let mut skipped_stocks = 0;
+	let mut error_stocks = 0;
+	let now = Local::now();
 
-		match query_stock_financials(&stock.code).await {
-			Ok(financials) => {
-				println!("Annuals: {:?}", financials.annuals.list);
-				println!("Quarters: {:?}", financials.quarters.list);
-				if let Err(err) = financials.save(&repo).await {
-					log::error!("Error saving financials: {:?}", err);
+	for stock in stocks.iter() {
+		if today - stock.info_date > chrono::Duration::days(10) {
+			log::info!("Stock `{}|{}` Outdated and skipped (date:{})", stock.code, stock.name, stock.info_date);
+			skipped_stocks += 1;
+
+		} else {
+			match query_stock_financials(&stock.code).await {
+				Ok(financials) => {
+					log::info!("Financials of Stock `{}|{}` fetched. ({} annuals, {} quarters)", stock.code, stock.name, financials.annuals.list.len(), financials.quarters.list.len());
+					financials.save(&repo).await.unwrap();
+					fetched_stocks += 1;
+				},
+				Err(err) => {
+					log::error!("Error: {:?} - Stock: `{}|{}`", err, stock.code, stock.name);
+					error_stocks += 1;
 				}
-			},
-			Err(err) => {
-				log::error!("Error: {:?}", err);
 			}
 		}
+
+		let delay = ((Local::now() - now).num_milliseconds() as f32) / 100 as f32;
+		log::info!("{fetched_stocks}/{stocks_len} fetched. ({skipped_stocks} skipped, {error_stocks} errors) - {delay:.1} delayed");
 	}
 }
