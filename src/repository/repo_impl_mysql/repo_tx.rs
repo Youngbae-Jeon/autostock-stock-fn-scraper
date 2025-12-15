@@ -4,7 +4,7 @@ use repo_helper::mysql::QueryObject;
 use tokio::sync::Mutex;
 
 use crate::types::Error;
-use crate::entities::{EntityDao, FiAnnualsDao, FiQuartersDao, RepoTx, StocksDao};
+use crate::entities::{EntityDao, FiAnnualsDao, FiQuartersDao, RepoTx, StockPricesDao, StocksDao};
 
 pub struct RepoTxImpl {
 	native_tx: Mutex<Transaction<'static>>,
@@ -23,6 +23,9 @@ impl RepoTxImpl {
 
 impl EntityDao for RepoTxImpl {
 	fn stocks(&self) -> &(dyn StocksDao + Sync) {
+		self
+	}
+	fn stock_prices(&self) -> &(dyn StockPricesDao + Sync) {
 		self
 	}
 	fn fi_annuals(&self) -> &(dyn FiAnnualsDao + Sync) {

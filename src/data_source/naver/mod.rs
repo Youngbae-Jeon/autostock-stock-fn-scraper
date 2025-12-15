@@ -183,7 +183,7 @@ fn parse_html_resp(html: &str, stock_code: &str) -> Result<Financials, Error> {
 				.map(|colspan| colspan.parse::<usize>().unwrap_or(1))
 				.unwrap_or(1);
 
-			let Some(text) = td.text().next().map(|s| s.trim().to_string()) else {
+			let Some(text) = get_text_opt(td) else {
 				col_idx += colspan;
 				continue;
 			};
@@ -221,10 +221,10 @@ fn parse_html_resp(html: &str, stock_code: &str) -> Result<Financials, Error> {
 	Ok(financials)
 }
 
-fn get_text(th: ElementRef<'_>) -> String {
+fn get_text(el: ElementRef<'_>) -> String {
 	let mut string = String::new();
 
-	let mut t = th.text();
+	let mut t = el.text();
 	loop {
 		let Some(text) = t.next() else {
 			break
@@ -239,6 +239,15 @@ fn get_text(th: ElementRef<'_>) -> String {
 	}
 
 	string.trim().to_string()
+}
+
+fn get_text_opt(el: ElementRef<'_>) -> Option<String> {
+	let text = get_text(el);
+	if text.is_empty() {
+		None
+	} else {
+		Some(text)
+	}
 }
 
 impl Financials {

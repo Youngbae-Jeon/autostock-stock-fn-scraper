@@ -80,3 +80,11 @@ impl From<&str> for Error {
 		}
 	}
 }
+
+impl From<csv::Error> for Error {
+	fn from(err: csv::Error) -> Self {
+		Error {
+			message: err.to_string(),
+		}
+	}
+}

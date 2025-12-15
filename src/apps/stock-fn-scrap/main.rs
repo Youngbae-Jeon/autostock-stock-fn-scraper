@@ -1,15 +1,11 @@
-use std::process::exit;
-
 use chrono::Local;
 
-use crate::{data_source::{query_stock_financials}, entities::EntityDao, repository::{DatabaseConfig, Repo}, types::Error};
+use crate::{data_source::{query_stock_financials}, entities::EntityDao, repository::DatabaseConfig};
 
-mod logger;
-mod types;
-mod entities;
-mod repository;
-mod data_source;
-mod fi_registry;
+use stock_fn_scraper::logger;
+use stock_fn_scraper::entities;
+use stock_fn_scraper::repository;
+use stock_fn_scraper::data_source;
 
 
 #[tokio::main]

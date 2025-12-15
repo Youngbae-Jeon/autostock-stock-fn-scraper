@@ -5,6 +5,7 @@ use chrono::{Datelike, NaiveDate};
 mod errors;
 
 pub use errors::*;
+use serde::{Serialize, Serializer};
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub enum Market {
@@ -91,5 +92,14 @@ impl PartialOrd for YearMonth {
 impl Ord for YearMonth {
 	fn cmp(&self, other: &Self) -> std::cmp::Ordering {
 		self.year.cmp(&other.year).then_with(|| self.month.cmp(&other.month))
+	}
+}
+impl Serialize for YearMonth {
+	fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+	where
+		S: Serializer,
+	{
+		// Use the serializer's method to serialize a string representation of the data
+		serializer.serialize_str(&self.to_string())
 	}
 }

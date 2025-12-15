@@ -1,6 +1,7 @@
 mod repo;
 mod repo_tx;
 mod repo_stocks;
+mod repo_stock_prices;
 mod convert;
 mod repo_fi_annuals;
 mod repo_fi_quarters;
