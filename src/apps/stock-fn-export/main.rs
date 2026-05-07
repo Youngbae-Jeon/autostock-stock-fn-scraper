@@ -1,10 +1,13 @@
-use std::{collections::LinkedList, fs::File, io, ops::Range};
+use std::{collections::LinkedList, fs::File, ops::Range};
 
 use chrono::{Duration, Local, NaiveDate};
 use csv::{QuoteStyle, WriterBuilder};
 use serde::Serialize;
-use stock_fn_scraper::{entities::{EntityDao, FinancialInfo, Stock, StockPrice, StockPriceRange}, logger, repository::{self, DatabaseConfig, Repo}, types::{Error, YearMonth}};
 
+use stock_fn_scraper::logger;
+use stock_fn_scraper::types::{Error, YearMonth};
+use stock_fn_scraper::entities::{EntityDao, FinancialInfo, Stock, StockPrice, StockPriceRange};
+use stock_fn_scraper::repository::{self, DatabaseConfig, Repo};
 
 
 #[tokio::main]
@@ -18,13 +21,17 @@ async fn main() {
 	let today = Local::now().date_naive();
 	let stocks = repo.stocks().list().await.unwrap();
 
-	let mut data_list = LinkedList::<Data>::new();
-	for stock in stocks.into_iter() {
+	let active_stocks = stocks.into_iter().fold(Vec::new(), |mut acc, stock| {
 		if today - stock.info_date > chrono::Duration::days(10) {
 			log::info!("Stock `{}|{}` Outdated and skipped (date:{})", stock.code, stock.name, stock.info_date);
-			continue;
+			return acc;
 		}
+		acc.push(stock);
+		acc
+	});
 
+	let mut data_list = LinkedList::<Data>::new();
+	for stock in active_stocks.into_iter() {
 		let stock_code = stock.code.clone();
 		let stock_name = stock.name.clone();
 		match fetch_data(stock, &repo).await {

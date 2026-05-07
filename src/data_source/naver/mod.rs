@@ -1,20 +1,21 @@
 use std::{collections::HashMap, ops::Range, time::Duration};
 
-use ratelimit::Ratelimiter;
+use ratelimit::{Ratelimiter, TryWaitError};
 use reqwest::IntoUrl;
 use scraper::{Element, ElementRef, Html, Selector};
 
-use crate::{entities::FinancialInfo, fi_registry::Financials, types::{Error, YearMonth}};
+use crate::{fi_registry::Financials, types::{Error, YearMonth}};
 
 lazy_static::lazy_static! {
-	static ref NAVER_RATELIMITER: Ratelimiter = Ratelimiter::builder(1, std::time::Duration::from_millis(500))
+	static ref NAVER_RATELIMITER: Ratelimiter = Ratelimiter::builder(1)
+		.period(std::time::Duration::from_millis(500))
 		.initial_available(1)
 		.build()
 		.unwrap();
 }
 
 async fn request<U: IntoUrl>(url: U) -> Result<String, Error> {
-	while let Err(dur) = NAVER_RATELIMITER.try_wait() {
+	while let Err(TryWaitError::Insufficient(dur)) = NAVER_RATELIMITER.try_wait() {
 		tokio::time::sleep(dur).await;
 	}
 
