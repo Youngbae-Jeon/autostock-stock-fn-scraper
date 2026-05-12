@@ -79,4 +79,5 @@ pub struct Stock {
 #[async_trait]
 pub trait StocksDao {
 	async fn list(&self) -> Result<Vec<Stock>, Error>;
+	async fn find_for_update(&self, code: &str) -> Result<Option<Stock>, Error>;
 }

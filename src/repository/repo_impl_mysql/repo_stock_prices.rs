@@ -1,8 +1,8 @@
-use std::ops::Range;
+use std::{fmt::Display, ops::Range};
 
 use async_trait::async_trait;
 use chrono::NaiveDate;
-use mysql_async::{params, prelude::FromRow};
+use mysql_async::{params, prelude::{FromRow, Queryable}};
 use repo_helper::{database_table, mysql::QueryObject};
 
 use crate::{entities::{StockPrice, StockPriceRange, StockPricesDao}, types::Error};
@@ -23,9 +23,13 @@ impl StockPricesDao for RepoImpl {
 		let mut q = self.get_query_object().await?;
 		query_range(&mut q, code, range).await
 	}
-	async fn delete_before(&self, code: &str, date: NaiveDate) -> Result<(), Error> {
+	async fn delete_all(&self, code: &str) -> Result<(), Error> {
 		let mut q = self.get_query_object().await?;
-		delete_before(&mut q, code, date).await
+		delete_all(&mut q, code).await
+	}
+	async fn insert_all(&self, code: &str, prices: &[StockPrice]) -> Result<(), Error> {
+		let mut q = self.get_query_object().await?;
+		insert_all(&mut q, code, prices).await
 	}
 }
 
@@ -43,9 +47,13 @@ impl StockPricesDao for RepoTxImpl {
 		let mut q = self.get_query_object().await?;
 		query_range(&mut q, code, range).await
 	}
-	async fn delete_before(&self, code: &str, date: NaiveDate) -> Result<(), Error> {
+	async fn delete_all(&self, code: &str) -> Result<(), Error> {
 		let mut q = self.get_query_object().await?;
-		delete_before(&mut q, code, date).await
+		delete_all(&mut q, code).await
+	}
+	async fn insert_all(&self, code: &str, prices: &[StockPrice]) -> Result<(), Error> {
+		let mut q = self.get_query_object().await?;
+		insert_all(&mut q, code, prices).await
 	}
 }
 
@@ -53,7 +61,6 @@ impl StockPricesDao for RepoTxImpl {
 database_table! {
 	#[table_name = "item_price", derive(FromRow)]
 	EntityRow {
-		code: String,
 		ord_date: NaiveDate,
 		opening: Option<u32>,
 		highest: Option<u32>,
@@ -67,7 +74,6 @@ impl TryFrom<EntityRow> for StockPrice {
 
 	fn try_from(value: EntityRow) -> Result<Self, Self::Error> {
 		Ok(Self {
-			stock_code: value.code,
 			ord_date: value.ord_date,
 			opening: value.opening,
 			highest: value.highest,
@@ -83,18 +89,18 @@ const TABLE: &str = EntityRow::TABLE_NAME;
 const FIELDS: &str = EntityRow::TABLE_FIELDS;
 
 
-async fn latest(q: &mut QueryObject<'_>, stock_code: &str) -> Result<Option<StockPrice>, Error> {
-	let sql = format!("SELECT {FIELDS} FROM {TABLE} WHERE code=:stock_code ORDER BY ord_date desc LIMIT 1");
-	log::debug!("{sql} -- stock_code={stock_code}");
+async fn latest(q: &mut QueryObject<'_>, code: &str) -> Result<Option<StockPrice>, Error> {
+	let sql = format!("SELECT {FIELDS} FROM {TABLE} WHERE code=:code ORDER BY ord_date desc LIMIT 1");
+	log::debug!("{sql} -- code={code}");
 
 	let stmt = q.prep(sql).await?;
-	let params = params! { stock_code };
+	let params = params! { code };
 	let ent: Option<EntityRow> = q.exec_first(&stmt, params).await?;
 	let fi = ent.map(StockPrice::try_from).transpose()?;
 	Ok(fi)
 }
 
-async fn oldest_and_latest(q: &mut QueryObject<'_>, stock_code: &str) -> Result<Option<(StockPrice, StockPrice)>, Error> {
+async fn oldest_and_latest(q: &mut QueryObject<'_>, code: &str) -> Result<Option<(StockPrice, StockPrice)>, Error> {
 	let sql = format!("SELECT {FIELDS} FROM (\
 		SELECT a.* FROM {TABLE} AS a \
 		JOIN (\
@@ -102,10 +108,10 @@ async fn oldest_and_latest(q: &mut QueryObject<'_>, stock_code: &str) -> Result<
 		) AS b ON a.ord_date=b.min_ord_date OR a.ord_date=b.max_ord_date \
 		WHERE a.code=?\
 		) c ORDER BY ord_date");
-	log::debug!("{sql} -- [{stock_code}, {stock_code}]");
+	log::debug!("{sql} -- [{code}, {code}]");
 
 	let stmt = q.prep(sql).await?;
-	let params = vec! [ stock_code, stock_code ];
+	let params = vec! [ code, code ];
 	let mut rows: Vec<EntityRow> = q.exec(&stmt, params).await?;
 	let len = rows.len();
 	match len {
@@ -140,26 +146,57 @@ impl TryFrom<StockPriceRangeEntityRow> for StockPriceRange {
 	}
 }
 
-async fn query_range(q: &mut QueryObject<'_>, stock_code: &str, range: Range<NaiveDate>) -> Result<Option<StockPriceRange>, Error> {
+async fn query_range(q: &mut QueryObject<'_>, code: &str, range: Range<NaiveDate>) -> Result<Option<StockPriceRange>, Error> {
 	let ord_date_start = range.start;
 	let ord_date_end = range.end;
 
-	let sql = format!("SELECT MAX(highest) AS highest, MIN(lowest) AS lowest FROM {TABLE} WHERE code=:stock_code AND ord_date>=:ord_date_start AND ord_date<:ord_date_end AND highest>0 AND lowest>0");
-	log::debug!("{sql} -- code={stock_code}, ord_date_start={ord_date_start}, ord_date_end={ord_date_end}");
+	let sql = format!("SELECT MAX(highest) AS highest, MIN(lowest) AS lowest FROM {TABLE} WHERE code=:code AND ord_date>=:ord_date_start AND ord_date<:ord_date_end AND highest>0 AND lowest>0");
+	log::debug!("{sql} -- code={code}, ord_date_start={ord_date_start}, ord_date_end={ord_date_end}");
 
 	let stmt = q.prep(sql).await?;
-	let params = params! { stock_code, ord_date_start, ord_date_end };
+	let params = params! { code, ord_date_start, ord_date_end };
 	let ent: Option<StockPriceRangeEntityRow> = q.exec_first(&stmt, params).await?;
 	let price_range = ent.map(StockPriceRange::try_from).transpose()?;
 	Ok(price_range)
 }
 
-async fn delete_before(q: &mut QueryObject<'_>, stock_code: &str, date: NaiveDate) -> Result<(), Error> {
-	let sql = format!("DELETE FROM {TABLE} WHERE code=:stock_code AND ord_date<:date");
-	log::debug!("{sql} -- stock_code={stock_code}, date={date}");
+async fn delete_all(q: &mut QueryObject<'_>, code: &str) -> Result<(), Error> {
+	let sql = format!("DELETE FROM {TABLE} WHERE code=:code");
+	log::debug!("{sql} -- code={code}");
 
 	let stmt = q.prep(sql).await?;
-	let params = params! { stock_code, date };
+	let params = params! { code };
 	q.exec_drop(&stmt, params).await?;
+	Ok(())
+}
+
+fn opt_expr<T: Display>(v: Option<T>) -> String {
+	v.map_or(String::from("NULL"), |v| v.to_string())
+}
+
+async fn insert_all(q: &mut QueryObject<'_>, code: &str, prices: &[StockPrice]) -> Result<(), Error> {
+	let sql = format!("INSERT INTO {TABLE} (code, ord_date, opening, highest, lowest, closing, diff) VALUES (:code, :ord_date, :opening, :highest, :lowest, :closing, :diff)");
+	let prices_txt = prices.iter()
+		.map(|p| {
+			format!(
+				"[{}, {}, {}, {}, {}, {}, {}]",
+				code, p.ord_date, opt_expr(p.opening), opt_expr(p.highest), opt_expr(p.lowest), opt_expr(p.closing), opt_expr(p.diff)
+			)
+		})
+		.collect::<Vec<_>>().join(", ");
+	log::debug!("{sql} -- code={code}, prices=[{prices_txt}]");
+
+	let stmt = q.prep(sql).await?;
+	q.exec_batch(stmt, prices.iter().map(|p| {
+		params! {
+			"code" => code,
+			"ord_date" => p.ord_date,
+			"opening" => p.opening,
+			"highest" => p.highest,
+			"lowest" => p.lowest,
+			"closing" => p.closing,
+			"diff" => p.diff,
+		}
+	})).await?;
 	Ok(())
 }

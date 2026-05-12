@@ -14,6 +14,10 @@ impl StocksDao for RepoImpl {
 		let mut q = self.get_query_object().await?;
 		list(&mut q).await
 	}
+	async fn find_for_update(&self, code: &str) -> Result<Option<Stock>, Error> {
+		let mut q = self.get_query_object().await?;
+		find_for_update(&mut q, code).await
+	}
 }
 
 #[async_trait]
@@ -21,6 +25,10 @@ impl StocksDao for RepoTxImpl {
 	async fn list(&self) -> Result<Vec<Stock>, Error> {
 		let mut q = self.get_query_object().await?;
 		list(&mut q).await
+	}
+	async fn find_for_update(&self, code: &str) -> Result<Option<Stock>, Error> {
+		let mut q = self.get_query_object().await?;
+		find_for_update(&mut q, code).await
 	}
 }
 
@@ -75,4 +83,15 @@ async fn list(q: &mut QueryObject<'_>) -> Result<Vec<Stock>, Error> {
 	let stmt = q.prep(sql).await?;
 	let rows: Vec<EntityRow> = q.exec(&stmt, key.params()).await?;
 	rows.into_repo_result()
+}
+
+async fn find_for_update(q: &mut QueryObject<'_>, code: &str) -> Result<Option<Stock>, Error> {
+	let sql = format!("SELECT {FIELDS} FROM {TABLE} WHERE code=? ORDER BY name");
+	log::debug!("{} -- [{}]", sql, code);
+
+	let stmt = q.prep(sql).await?;
+	let params = vec! [ code ];
+	let ent: Option<EntityRow> = q.exec_first(&stmt, params).await?;
+	let stock = ent.map(Stock::try_from).transpose()?;
+	Ok(stock)
 }

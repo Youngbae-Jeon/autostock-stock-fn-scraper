@@ -16,7 +16,7 @@ mysql_async = { version = "0.36.2", optional = true }
 mysql_common = { version = "0.35.5", features = ["chrono"], optional = true }
 ratelimit = "2.0.0"
 repo-helper = { version = "0.1.0", path = "repo-helper", optional = true }
-reqwest = "0.12.25"
+reqwest = { version = "0.13", features = ["json"] }
 scraper = "0.25.0"
 serde = { version = "1.0.228", features = ["derive"] }
 tokio = { version = "1.48.0", features = ["full"] }
