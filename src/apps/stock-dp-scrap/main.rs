@@ -22,7 +22,7 @@ async fn main() {
 			log::error!("Error: {} (Stock `{}|{}`)", e.message, stock.code, stock.name);
 		}
 
-		break; // stop for debug
+		// break; // stop for debug
 	}
 }
 
@@ -30,6 +30,7 @@ const BEGIN_DATE_LIMIT: NaiveDate = NaiveDate::from_ymd_opt(1990, 1, 3).unwrap()
 
 async fn work_with_stock(repo: &Repo, stock: &Stock, base_date: NaiveDate) -> Result<(), Error> {
 	let mut cached = repo.stock_prices().oldest_and_latest(&stock.code).await?;
+	log::debug!("`{}|{}` cached: {:?}", stock.code, stock.name, cached.as_ref().map(|(o, l)| (o.ord_date, l.ord_date)).unwrap_or_default());
 	if let Some((oldest, latest)) = &cached {
 		log::debug!("Cached: `{}|{}` oldest={} latest={}", stock.code, stock.name, oldest.ord_date, latest.ord_date);
 
@@ -39,9 +40,9 @@ async fn work_with_stock(repo: &Repo, stock: &Stock, base_date: NaiveDate) -> Re
 			return Ok(());
 		}
 
-		if base_date > latest.ord_date {
+		if base_date < latest.ord_date {
 			// 기준일자 < 캐시의 최종일자이면 캐시의 무결함이 의심되므로 캐시를 무효화하고 계속 진행한다
-			log::debug!("`{}|{}` DELETE prices because cached may be invalid", stock.code, stock.name);
+			log::info!("`{}|{}` DELETE prices because cached data may be invalid", stock.code, stock.name);
 			repo.stock_prices().delete_all(&stock.code).await?;
 			cached = None;
 		}
@@ -50,16 +51,17 @@ async fn work_with_stock(repo: &Repo, stock: &Stock, base_date: NaiveDate) -> Re
 	let last_date_of_cached = cached.as_ref().map(|(_, latest)| latest.ord_date)
 		.or(stock.list_date)
 		.unwrap_or(BEGIN_DATE_LIMIT);
-	let prices_after_cached = StockPriceFetcher::fetch(stock, last_date_of_cached, base_date).await?;
-	let updates_for_cached = if cached.as_ref().is_some_and(|c| cached_prices_are_valid(c, &prices_after_cached)) {
-		let list_date = stock.list_date.unwrap_or(BEGIN_DATE_LIMIT);
-		let prices = StockPriceFetcher::fetch(stock, list_date, last_date_of_cached).await?;
-		Some(prices)
-	} else {
-		None
-	};
+	let mut prices_after_cached = StockPriceFetcher::fetch(stock, last_date_of_cached, base_date).await?;
 
-	update_stock_prices_cache(repo, stock, &prices_after_cached, updates_for_cached.as_deref()).await
+	if cached.as_ref().is_some_and(|c| !cached_prices_are_valid(c, &prices_after_cached)) {
+		let list_date = stock.list_date.unwrap_or(BEGIN_DATE_LIMIT);
+		let cache_replacement = StockPriceFetcher::fetch(stock, list_date, last_date_of_cached).await?;
+		update_stock_prices_cache(repo, stock, &prices_after_cached, Some(&cache_replacement)).await
+
+	} else {
+		prices_after_cached = prices_after_cached.into_iter().filter(|p| p.ord_date > last_date_of_cached).collect();
+		update_stock_prices_cache(repo, stock, &prices_after_cached, None).await
+	}
 }
 
 fn cached_prices_are_valid((_, cached_latest): &(StockPrice, StockPrice), fresh_fetched: &[StockPrice]) -> bool {
@@ -73,14 +75,21 @@ fn cached_prices_are_valid((_, cached_latest): &(StockPrice, StockPrice), fresh_
 async fn update_stock_prices_cache(repo: &Repo, stock: &Stock, prices_after_cached: &[StockPrice], updates_for_cached: Option<&[StockPrice]>) -> Result<(), Error> {
 	let tx = repo.transaction().await?;
 
-	if let Some(updates) = updates_for_cached {
-		tx.stock_prices().delete_all(&stock.code).await?;
-		tx.stock_prices().insert_all(&stock.code, updates).await?;
-	}
-
 	tx.stocks().find_for_update(&stock.code).await?
 		.ok_or_else(|| format!("Not Found Stock Code {}", stock.code))?;
-	tx.stock_prices().insert_all(&stock.code, &prices_after_cached).await?;
+
+	if let Some(updates) = updates_for_cached {
+		tx.stock_prices().delete_all(&stock.code).await?;
+
+		if !updates.is_empty() {
+			tx.stock_prices().insert_all(&stock.code, updates).await?;
+		}
+	}
+
+	if !prices_after_cached.is_empty() {
+		tx.stock_prices().insert_all(&stock.code, &prices_after_cached).await?;
+	}
+
 	tx.commit().await?;
 	Ok(())
 }
@@ -103,11 +112,28 @@ impl<'a> StockPriceFetcher<'a> {
 		while self.start < end {
 			let start = (end - Duration::days(150)).max(self.start);
 			let list = data_source::query_stock_prices(&self.stock.code, start, end).await?;
+			if list.is_empty() {
+				break;
+			}
+
 			cumul.insert(0, list);
 			end = start;
 		}
 
-		let result: Vec<StockPrice> = cumul.into_iter().flatten().collect();
+		let mut result: Vec<StockPrice> = cumul.into_iter().flatten().collect();
+		Self::set_diff_values(&mut result);
 		Ok(result)
+	}
+
+	fn set_diff_values(prices: &mut [StockPrice]) {
+		let mut last_closing = None;
+		for price in prices {
+			if let Some(closing) = price.closing {
+				if let Some(last_closing) = last_closing {
+					price.diff = Some(closing as i32 - last_closing as i32);
+				}
+			}
+			last_closing = price.closing;
+		}
 	}
 }

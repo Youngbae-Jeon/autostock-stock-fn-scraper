@@ -1,5 +1,4 @@
 use chrono::{Duration, NaiveDate};
-use mysql_common::serde_json;
 use ratelimit::TryWaitError;
 
 use crate::{entities::StockPrice, types::Error};
@@ -32,7 +31,7 @@ pub async fn query_stock_prices(stock_code: &str, start: NaiveDate, end: NaiveDa
 		.map_err(|e| e.to_string())?
 		.json().await
 		.map_err(|e| e.to_string())?;
-	log::debug!("list len={}", list.len());
+	log::debug!("{} daily prices fetched ({} ~ {})", list.len(), list.first().map(|p| p.local_date.clone()).unwrap_or_default(), list.last().map(|p| p.local_date.clone()).unwrap_or_default());
 
 	let mut prices: Vec<StockPrice> = Vec::with_capacity(list.len());
 	for item in list {
