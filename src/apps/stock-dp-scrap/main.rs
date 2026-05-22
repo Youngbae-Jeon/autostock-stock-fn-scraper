@@ -1,4 +1,4 @@
-use chrono::{Duration, Local, NaiveDate};
+use chrono::{Datelike, Duration, Local, NaiveDate};
 
 use stock_fn_scraper::{data_source, logger};
 use stock_fn_scraper::entities::{EntityDao, RepoTx, Repository, Stock, StockPrice};
@@ -28,21 +28,20 @@ async fn main() {
 
 const BEGIN_DATE_LIMIT: NaiveDate = NaiveDate::from_ymd_opt(1990, 1, 3).unwrap();
 
-async fn work_with_stock(repo: &Repo, stock: &Stock, base_date: NaiveDate) -> Result<(), Error> {
+async fn work_with_stock(repo: &Repo, stock: &Stock, today: NaiveDate) -> Result<(), Error> {
 	let mut cached = repo.stock_prices().oldest_and_latest(&stock.code).await?;
-	log::debug!("`{}|{}` cached: {:?}", stock.code, stock.name, cached.as_ref().map(|(o, l)| (o.ord_date, l.ord_date)).unwrap_or_default());
 	if let Some((oldest, latest)) = &cached {
 		log::debug!("Cached: `{}|{}` oldest={} latest={}", stock.code, stock.name, oldest.ord_date, latest.ord_date);
 
-		if base_date == latest.ord_date {
-			// 기준일자 == 캐시종료일이면 캐시가 유효한 것으로 본다
-			log::debug!("`{}|{}` 기준일자 == 캐시종료일이므로 캐시가 유효한 것으로 본다 --> skip ({})", stock.code, stock.name, base_date.format("%Y-%m-%d"));
+		let lbd = last_business_day(today);
+		println!("lbd={} today={}", lbd.format("%Y-%m-%d"), today.format("%Y-%m-%d"));
+		if lbd == latest.ord_date {
+			log::debug!("`{}|{}` 직전영업일 == 캐시종료일이므로 캐시가 유효한 것으로 판단 --> skip", stock.code, stock.name);
 			return Ok(());
 		}
 
-		if base_date < latest.ord_date {
-			// 기준일자 < 캐시의 최종일자이면 캐시의 무결함이 의심되므로 캐시를 무효화하고 계속 진행한다
-			log::info!("`{}|{}` DELETE prices because cached data may be invalid", stock.code, stock.name);
+		if lbd < latest.ord_date {
+			log::info!("`{}|{}` 직전영업일 < 캐시종료일이므로 캐시의 무결함이 의심됨 -> 캐시 삭제", stock.code, stock.name);
 			repo.stock_prices().delete_all(&stock.code).await?;
 			cached = None;
 		}
@@ -51,7 +50,11 @@ async fn work_with_stock(repo: &Repo, stock: &Stock, base_date: NaiveDate) -> Re
 	let last_date_of_cached = cached.as_ref().map(|(_, latest)| latest.ord_date)
 		.or(stock.list_date)
 		.unwrap_or(BEGIN_DATE_LIMIT);
-	let mut prices_after_cached = StockPriceFetcher::fetch(stock, last_date_of_cached, base_date).await?;
+	let mut prices_after_cached = StockPriceFetcher::fetch(stock, last_date_of_cached, today).await?;
+	if prices_after_cached.is_empty() {
+		log::warn!("`{}|{}` 가격 데이터 가져오기 실패 -> 상장 해지 종목 의심", stock.code, stock.name);
+		return Ok(());
+	}
 
 	if cached.as_ref().is_some_and(|c| !cached_prices_are_valid(c, &prices_after_cached)) {
 		let list_date = stock.list_date.unwrap_or(BEGIN_DATE_LIMIT);
@@ -61,6 +64,16 @@ async fn work_with_stock(repo: &Repo, stock: &Stock, base_date: NaiveDate) -> Re
 	} else {
 		prices_after_cached = prices_after_cached.into_iter().filter(|p| p.ord_date > last_date_of_cached).collect();
 		update_stock_prices_cache(repo, stock, &prices_after_cached, None).await
+	}
+}
+
+fn last_business_day(mut date: NaiveDate) -> NaiveDate {
+	loop {
+		date -= Duration::days(1);
+		let w = date.weekday();
+		if w != chrono::Weekday::Sat && w != chrono::Weekday::Sun {
+			break date;
+		}
 	}
 }
 
@@ -86,9 +99,7 @@ async fn update_stock_prices_cache(repo: &Repo, stock: &Stock, prices_after_cach
 		}
 	}
 
-	if !prices_after_cached.is_empty() {
-		tx.stock_prices().insert_all(&stock.code, &prices_after_cached).await?;
-	}
+	tx.stock_prices().insert_all(&stock.code, &prices_after_cached).await?;
 
 	tx.commit().await?;
 	Ok(())
