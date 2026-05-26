@@ -61,6 +61,12 @@ async fn work_with_stock(repo: &Repo, stock: &Stock, today: NaiveDate) -> Result
 	if cached.as_ref().is_some_and(|c| !cached_prices_are_valid(c, &prices_after_cached)) {
 		let list_date = stock.list_date.unwrap_or(BEGIN_DATE_LIMIT);
 		let cache_replacement = StockPriceFetcher::fetch(stock, list_date, last_date_of_cached).await?;
+
+		// set diff value of first day of new part(prices_after_cached)
+		if let Some(first_of_new_part) = prices_after_cached.first_mut() {
+			set_stock_price_diff_from(first_of_new_part, cache_replacement.last());
+		}
+
 		update_stock_prices_cache(repo, stock, &prices_after_cached, Some(&cache_replacement)).await
 
 	} else {
@@ -149,6 +155,14 @@ impl<'a> StockPriceFetcher<'a> {
 				}
 			}
 			last_closing = price.closing;
+		}
+	}
+}
+
+fn set_stock_price_diff_from(sp: &mut StockPrice, last_sp: Option<&StockPrice>) {
+	if let Some(closing_val) = sp.closing {
+		if let Some(closing_val_of_last) = last_sp.and_then(|p| p.closing) {
+			sp.diff = Some(closing_val as i32 - closing_val_of_last as i32);
 		}
 	}
 }
