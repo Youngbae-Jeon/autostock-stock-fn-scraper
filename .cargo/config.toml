@@ -1,3 +1,10 @@
+[alias]
+w = "watch"
+b = "build"
+br = "build --release"
+r = "run"
+t = "test"
+
 [profile.release]
 opt-level = 'z'
 strip = true

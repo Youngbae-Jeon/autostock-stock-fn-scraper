@@ -8,7 +8,9 @@ use stock_fn_scraper::types::Error;
 
 #[tokio::main]
 async fn main() {
+	#[cfg(feature = "dotenv")]
 	dotenvy::dotenv().ok();
+
 	logger::prepare();
 
 	let db_conf = DatabaseConfig::from_env();
@@ -99,7 +101,9 @@ async fn update_stock_prices_cache(repo: &Repo, stock: &Stock, prices_after_cach
 		}
 	}
 
-	tx.stock_prices().insert_all(&stock.code, &prices_after_cached).await?;
+	if !prices_after_cached.is_empty() {
+		tx.stock_prices().insert_all(&stock.code, &prices_after_cached).await?;
+	}
 
 	tx.commit().await?;
 	Ok(())

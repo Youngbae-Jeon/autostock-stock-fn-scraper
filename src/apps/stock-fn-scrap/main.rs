@@ -8,7 +8,9 @@ use stock_fn_scraper::repository::{self, DatabaseConfig};
 
 #[tokio::main]
 async fn main() {
+	#[cfg(feature = "dotenv")]
 	dotenvy::dotenv().ok();
+
 	logger::prepare();
 
 	let db_conf = DatabaseConfig::from_env();
