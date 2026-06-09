@@ -1,7 +1,7 @@
 use async_trait::async_trait;
 use chrono::NaiveDate;
 use mysql_async::prelude::FromRow;
-use repo_helper::{Filter, SqlFilter, database_table, mysql::{MySqlHelper, QueryObject}};
+use repo_helper::{database_table, mysql::QueryObject};
 
 use crate::types::Error;
 use crate::entities::{Stock, StocksDao};
@@ -74,14 +74,10 @@ const TABLE: &str = EntityRow::TABLE_NAME;
 const FIELDS: &str = EntityRow::TABLE_FIELDS;
 
 async fn list(q: &mut QueryObject<'_>) -> Result<Vec<Stock>, Error> {
-	let key = SqlFilter::default()
-		.with("market", &Filter::In(vec!["KOSPI", "KOSDAQ"]));
-	let key_clause = key.with_named_binding_holder();
-	let sql = format!("SELECT {FIELDS} FROM {TABLE} WHERE {key_clause} ORDER BY name");
-	log::debug!("{} -- {}", sql, key);
+	let sql = format!("SELECT {FIELDS} FROM {TABLE} ORDER BY name");
+	log::debug!("{}", sql);
 
-	let stmt = q.prep(sql).await?;
-	let rows: Vec<EntityRow> = q.exec(&stmt, key.params()).await?;
+	let rows: Vec<EntityRow> = q.query(sql).await?;
 	rows.into_repo_result()
 }
 
