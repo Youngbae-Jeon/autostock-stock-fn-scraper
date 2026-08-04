@@ -59,11 +59,11 @@ impl TryFrom<NaverStockChartPrice> for StockPrice {
 	fn try_from(value: NaverStockChartPrice) -> Result<Self, Self::Error> {
 		Ok(StockPrice {
 			ord_date: NaiveDate::parse_from_str(&value.local_date, "%Y%m%d")?,
-			opening: Some(value.open_price as u32),
-			highest: Some(value.high_price as u32),
-			lowest: Some(value.low_price as u32),
-			closing: Some(value.close_price as u32),
-			diff: None,
+			opening: value.open_price as u32,
+			highest: value.high_price as u32,
+			lowest: value.low_price as u32,
+			closing: value.close_price as u32,
+			diff: 0,
 		})
 	}
 }

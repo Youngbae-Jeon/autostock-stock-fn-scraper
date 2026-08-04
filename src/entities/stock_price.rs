@@ -10,22 +10,22 @@ pub struct StockPrice {
 	/// 일자
 	pub ord_date: NaiveDate,
 	/// 시가
-	pub opening: Option<u32>,
+	pub opening: u32,
 	/// 고가
-	pub highest: Option<u32>,
+	pub highest: u32,
 	/// 저가
-	pub lowest: Option<u32>,
+	pub lowest: u32,
 	/// 종가
-	pub closing: Option<u32>,
+	pub closing: u32,
 	/// 전일대비
-	pub diff: Option<i32>,
+	pub diff: i32,
 }
 
 pub struct StockPriceRange {
 	/// 고가
-	pub highest: Option<u32>,
+	pub highest: u32,
 	/// 저가
-	pub lowest: Option<u32>,
+	pub lowest: u32,
 }
 
 #[async_trait]
