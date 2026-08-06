@@ -19,7 +19,7 @@ async fn main() {
 	let today = Local::now().date_naive();
 	let stocks = repo.stocks().list().await.unwrap();
 
-	for stock in stocks.iter().filter(|s| s.code == "069500") {
+	for stock in stocks.iter() {
 		if let Err(e) = work_with_stock(&repo, stock, today).await {
 			log::error!("Error: {} (Stock `{}|{}`)", e.message, stock.code, stock.name);
 		}
