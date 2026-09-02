@@ -166,10 +166,10 @@ async fn create_csv(data_list: &LinkedList<Data>) -> Result<(), Error> {
 		rec.name = data.stock.name.clone();
 		rec.market = data.stock.market.as_str();
 		rec.date = data.stock.info_date;
-		rec.price = data.price_latest.as_ref().and_then(|p| p.closing);
+		rec.price = data.price_latest.as_ref().map(|p| p.closing);
 		rec.market_cap = rec.price.zip(data.stock.list_shares).map(|(price, shares)| (price as f64 * shares as f64 / 100000000 as f64).round() as u32);
-		rec.highest_in_recent = data.price_range.as_ref().and_then(|r| r.highest);
-		rec.lowest_in_recent = data.price_range.as_ref().and_then(|r| r.lowest);
+		rec.highest_in_recent = data.price_range.as_ref().map(|r| r.highest);
+		rec.lowest_in_recent = data.price_range.as_ref().map(|r| r.lowest);
 
 		let i = data.annuals.len() as i32 - 1;
 		if i >= 0 {

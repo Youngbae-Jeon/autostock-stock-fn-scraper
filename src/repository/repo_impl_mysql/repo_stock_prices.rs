@@ -1,4 +1,4 @@
-use std::{fmt::Display, ops::Range};
+use std::ops::Range;
 
 use async_trait::async_trait;
 use chrono::NaiveDate;
@@ -62,11 +62,11 @@ database_table! {
 	#[table_name = "item_price", derive(FromRow)]
 	EntityRow {
 		ord_date: NaiveDate,
-		opening: Option<u32>,
-		highest: Option<u32>,
-		lowest: Option<u32>,
-		closing: Option<u32>,
-		diff: Option<i32>,
+		opening: u32,
+		highest: u32,
+		lowest: u32,
+		closing: u32,
+		diff: i32,
 	}
 }
 impl TryFrom<EntityRow> for StockPrice {
@@ -132,8 +132,8 @@ async fn oldest_and_latest(q: &mut QueryObject<'_>, code: &str) -> Result<Option
 
 #[derive(FromRow)]
 struct StockPriceRangeEntityRow {
-	highest: Option<u32>,
-	lowest: Option<u32>,
+	highest: u32,
+	lowest: u32,
 }
 impl TryFrom<StockPriceRangeEntityRow> for StockPriceRange {
 	type Error = Error;
@@ -170,17 +170,13 @@ async fn delete_all(q: &mut QueryObject<'_>, code: &str) -> Result<(), Error> {
 	Ok(())
 }
 
-fn opt_expr<T: Display>(v: Option<T>) -> String {
-	v.map_or(String::from("NULL"), |v| v.to_string())
-}
-
 async fn insert_all(q: &mut QueryObject<'_>, code: &str, prices: &[StockPrice]) -> Result<(), Error> {
 	let sql = format!("INSERT INTO {TABLE} (code, ord_date, opening, highest, lowest, closing, diff) VALUES (:code, :ord_date, :opening, :highest, :lowest, :closing, :diff)");
 	let prices_txt = prices.iter()
 		.map(|p| {
 			format!(
 				"[{}, {}, {}, {}, {}, {}, {}]",
-				code, p.ord_date, opt_expr(p.opening), opt_expr(p.highest), opt_expr(p.lowest), opt_expr(p.closing), opt_expr(p.diff)
+				code, p.ord_date, p.opening, p.highest, p.lowest, p.closing, p.diff
 			)
 		})
 		.collect::<Vec<_>>().join(", ");

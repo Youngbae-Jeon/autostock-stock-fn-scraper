@@ -85,7 +85,9 @@ async fn work_with_stock(repo: &Repo, stock: &Stock, today: NaiveDate) -> Result
 		update_stock_prices_cache(repo, stock, &prices_after_cached, Some(&cache_replacement)).await
 
 	} else {
-		prices_after_cached = prices_after_cached.into_iter().filter(|p| p.ord_date > last_date_of_cached).collect();
+		if cached.is_some() {
+			prices_after_cached = prices_after_cached.into_iter().filter(|p| p.ord_date > last_date_of_cached).collect();
+		}
 		update_stock_prices_cache(repo, stock, &prices_after_cached, None).await
 	}
 }
@@ -162,11 +164,11 @@ impl<'a> StockPriceFetcher<'a> {
 	}
 
 	fn set_diff_values(prices: &mut [StockPrice]) {
-		let mut last_closing = None;
+		let mut last_closing = 0;
 		for price in prices {
-			if let Some(closing) = price.closing {
-				if let Some(last_closing) = last_closing {
-					price.diff = Some(closing as i32 - last_closing as i32);
+			if price.closing != 0 {
+				if last_closing != 0 {
+					price.diff = price.closing as i32 - last_closing as i32;
 				}
 			}
 			last_closing = price.closing;
@@ -175,9 +177,8 @@ impl<'a> StockPriceFetcher<'a> {
 }
 
 fn set_stock_price_diff_from(sp: &mut StockPrice, last_sp: Option<&StockPrice>) {
-	if let Some(closing_val) = sp.closing {
-		if let Some(closing_val_of_last) = last_sp.and_then(|p| p.closing) {
-			sp.diff = Some(closing_val as i32 - closing_val_of_last as i32);
-		}
+	if sp.closing == 0 {
+		let closing_val_of_last = last_sp.map(|p| p.closing).unwrap_or(0);
+		sp.diff = sp.closing as i32 - closing_val_of_last as i32;
 	}
 }
