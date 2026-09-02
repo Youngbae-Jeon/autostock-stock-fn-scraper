@@ -1,3 +1,6 @@
 [submodule "repo-helper"]
 	path = repo-helper
 	url = git@github.com:Youngbae-Jeon/repo-helper-rs.git
+[submodule "krxopenapi"]
+	path = krxopenapi
+	url = git@github.com:Youngbae-Jeon/krxopenapi.git

@@ -1,3 +1,5 @@
+use std::env;
+
 use chrono::{Datelike, Duration, Local, NaiveDate};
 
 use stock_fn_scraper::{data_source, logger};
@@ -13,17 +15,30 @@ async fn main() {
 
 	logger::prepare();
 
+	let today = Local::now().date_naive();
+
+	// let krx_auth_key = env::var("KRX_OPEN_API_KEY").unwrap_or_default();
+	// let krx_client = krxopenapi::KrxOpenApiClient::new(krx_auth_key);
+	// match krx_client.fetch_kosdaq_items_info(today - Duration::days(1)).await {
+	// 	Ok(items) => {
+	// 		for item in items.iter() {
+	// 			log::debug!("{item:?}");
+	// 		}
+	// 		log::debug!("Fetched {} items", items.len());
+	// 	}
+	// 	Err(e) => log::error!("Error: {}", e),
+	// }
+	// return; // stop for debug
+
 	let db_conf = DatabaseConfig::from_env();
 	let repo = repository::create(&db_conf).await;
 
-	let today = Local::now().date_naive();
 	let stocks = repo.stocks().list().await.unwrap();
 
 	for stock in stocks.iter() {
 		if let Err(e) = work_with_stock(&repo, stock, today).await {
 			log::error!("Error: {} (Stock `{}|{}`)", e.message, stock.code, stock.name);
 		}
-
 		// break; // stop for debug
 	}
 }

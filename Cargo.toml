@@ -10,6 +10,7 @@ chrono = "0.4.42"
 csv = "1.4.0"
 dotenvy = { version = "0.15.7", optional = true }
 env_logger = "0.11.8"
+krxopenapi = { version = "0.1.0", path = "krxopenapi" }
 lazy_static = "1.5.0"
 log = "0.4.29"
 mysql_async = { version = "0.36.2", optional = true }
